@@ -9,7 +9,7 @@ from socket_client import SystemSocketAdapter
 from decoder import H264Decoder
 from input_mapper import InputMapper
 from connection_ui import ConnectionUI
-from adb_manager import AdbManager
+
 
 class VideoStreamThread(QObject):
     frame_ready = pyqtSignal(object)
@@ -25,7 +25,7 @@ class VideoStreamThread(QObject):
             chunk = self.streamer.get_data()
             if chunk:
                 self.decoder.decode_chunk(chunk)
-            
+
             frame = self.decoder.get_frame()
             if frame is not None:
                 self.frame_ready.emit(frame)
@@ -37,12 +37,12 @@ class VideoStreamThread(QObject):
 
 
 class ProjectorWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, phone_ip):
         super().__init__()
         self.setWindowTitle("Projector")
         self.resize(360, 640)
 
-        # Floating & Frameless Constraints
+        # Floating & Frameless
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
@@ -55,23 +55,24 @@ class ProjectorWindow(QMainWindow):
                 border: 2px solid #333333;
             }
         """)
-        
+
         self.video_label = QLabel(self.central_widget)
         self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.video_label.setStyleSheet("background-color: transparent;")
         self.video_label.setMouseTracking(True)
-        
+
         layout = QVBoxLayout()
         layout.setContentsMargins(10, 20, 10, 20)
         layout.addWidget(self.video_label)
         self.central_widget.setLayout(layout)
-        
+
         self.setCentralWidget(self.central_widget)
 
         self.phone_width = 720
         self.phone_height = 1280
 
-        self.streamer = SystemSocketAdapter(port=8080)
+        # Direct Wi-Fi connection to discovered phone IP
+        self.streamer = SystemSocketAdapter(ip=phone_ip, video_port=8080, input_port=8081)
         self.decoder = H264Decoder()
         self.input_mapper = InputMapper(socket_adapter=self.streamer, phone_width=self.phone_width, phone_height=self.phone_height)
 
@@ -90,11 +91,11 @@ class ProjectorWindow(QMainWindow):
     def update_image(self, bgr_img):
         height, width, channel = bgr_img.shape
         bytes_per_line = 3 * width
-        
+
         rgb_img = bgr_img[:, :, ::-1].copy()
         q_img = QImage(rgb_img.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
         pixmap = QPixmap.fromImage(q_img)
-        
+
         scaled_pixmap = pixmap.scaled(self.video_label.size(), Qt.AspectRatioMode.KeepAspectRatio)
         self.video_label.setPixmap(scaled_pixmap)
 
@@ -117,12 +118,12 @@ class ProjectorWindow(QMainWindow):
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.drag_position = None
-            
+
             if self.is_pressing:
                 self.is_pressing = False
                 pos = self.video_label.mapFrom(self, event.position().toPoint())
                 end_pos = (pos.x(), pos.y())
-                
+
                 w = self.video_label.width()
                 h = self.video_label.height()
 
@@ -132,7 +133,10 @@ class ProjectorWindow(QMainWindow):
                 if dx < 10 and dy < 10:
                     self.input_mapper.send_tap(end_pos[0], end_pos[1], w, h)
                 else:
-                    self.input_mapper.send_swipe(self.start_pos[0], self.start_pos[1], end_pos[0], end_pos[1], w, h)
+                    self.input_mapper.send_swipe(
+                        self.start_pos[0], self.start_pos[1],
+                        end_pos[0], end_pos[1], w, h
+                    )
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
@@ -142,18 +146,18 @@ class ProjectorWindow(QMainWindow):
         self.video_thread_worker.stop()
         self.streamer.stop()
         self.decoder.stop()
-        AdbManager().cleanup()  # Terminate background ADB daemon
         event.accept()
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    
-    # 1. Boot up the ADB Setup Prompt
+
+    # 1. Show auto-discovery device picker
     setup_ui = ConnectionUI()
     if setup_ui.exec() == QDialog.DialogCode.Accepted:
-        # 2. Only if connected and server deployed successfully, load the Floating Phone window
-        window = ProjectorWindow()
+        phone_ip = setup_ui.get_selected_ip()
+        # 2. Launch the floating phone window connected to the discovered IP
+        window = ProjectorWindow(phone_ip)
         window.show()
         sys.exit(app.exec())
     else:

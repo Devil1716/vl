@@ -20,8 +20,10 @@ public class Server {
                 port = Integer.parseInt(args[0]);
             }
 
-            ServerSocket serverSocket = new ServerSocket(port);
-            System.out.println("Listening for PC connection on port " + port);
+            java.net.InetSocketAddress address = new java.net.InetSocketAddress("0.0.0.0", port);
+            ServerSocket serverSocket = new ServerSocket();
+            serverSocket.bind(address);
+            System.out.println("Listening for Wireless PC connection on port " + port);
 
             Socket clientSocket = serverSocket.accept();
             System.out.println("PC Connected!");
