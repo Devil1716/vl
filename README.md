@@ -1,30 +1,54 @@
-# High-Performance Android Projector
+# Projector — Seamless Phone Mirroring
 
-A zero-latency, OEM-level Android screen mirroring and remote control application for Windows.
+Mirror and control your Android phone from your Windows laptop, just like Xiaomi PC Connect.
 
-Unlike standard screen mirroring apps that rely on slow casting protocols or accessibility services, this tool utilizes **Deep System Optimization**. By pushing a raw Java Daemon (`.jar`) directly into the Android `app_process`, it achieves:
-* **Zero-Latency Video**: Hooks directly into hidden `android.view.SurfaceControl` buffers.
-* **Instant Touch Injection**: Injects mouse drag and click events natively into the `InputManager` (~2ms response time).
-* **Fully Wireless, Frameless UI**: Your phone is mirrored as a transparent, sleek floating window on your PC.
+**No ADB. No terminals. No IP addresses.** Just install both apps and they find each other automatically.
 
-## How to Install and Use
+## How It Works
 
-We've automated the entire connection process so you never have to open a terminal. The ADB binaries are bundled directly into the application.
+```
+Android Phone (Wi-Fi)  ←→  Windows Laptop (Wi-Fi)
+     📱 Projector App         💻 ADB Projector.exe
+```
 
-### 1. Requirements
-* A PC running Windows.
-* An Android device with [Wireless Debugging Enabled](https://developer.android.com/studio/debug/dev-options) on the same Wi-Fi network as the PC.
+Both apps are on the same Wi-Fi network. The phone broadcasts "I'm here!" every 2 seconds. The PC listens, discovers it, and you click Connect. Done.
 
-### 2. Download the App
-1. Go to the [Releases](https://github.com/Devil1716/vl/releases) page or click the **Code > Download ZIP** button above.
-2. Extract the folder to your desktop.
+## Setup (One-Time)
 
-### 3. Connect Wireless
-1. Open your Android phone's **Settings > Developer Options > Wireless Debugging**.
-2. Note the IP Address and Port (e.g., `192.168.1.100:5555`).
-3. On your PC, navigate into the extracted `dist\ADB Projector\` folder and double click **`ADB Projector.exe`**.
-4. Type your Phone's IP and Port into the connection wizard and click **Connect**.
+### Phone
+1. Build the Android app from the `projector-android/` source using Android Studio, OR sideload the APK.
+2. Open **Projector** on your phone.
+3. Tap **"Enable Accessibility"** and turn on the Projector service (this enables touch control from PC).
+4. Tap **"Start Sharing"** and grant Screen Recording permission.
 
-The application will handle everything in the background—pushing the server to your phone, starting the system daemon, and hooking the ports. When it reaches 100%, the sleek floating phone will appear on your desktop!
+### PC
+1. Download this repository as a ZIP and extract it.
+2. Open `dist\ADB Projector\` and run **`ADB Projector.exe`**.
+3. Your phone will appear automatically in the device list.
+4. Click your phone → Click **Connect**.
+5. Your phone screen appears as a sleek floating window! 🎉
 
-*(Press `ESC` to close the mirroring window)*
+## Controls
+- **Click** on the floating phone to tap
+- **Click & drag** to swipe
+- **Drag the black border** to move the window
+- **Press ESC** to close
+
+## Project Structure
+```
+projector/              ← Windows client (Python + PyQt6)
+├── main.py             ← Entry point
+├── discovery.py        ← UDP auto-discovery listener
+├── connection_ui.py    ← Device picker UI
+├── socket_client.py    ← Wi-Fi TCP video + input
+├── decoder.py          ← H.264 video decoder
+├── input_mapper.py     ← Touch coordinate mapper
+└── dist/               ← Pre-built Windows .exe
+
+projector-android/      ← Android companion app (Kotlin)
+└── app/src/main/java/com/projector/companion/
+    ├── MainActivity.kt
+    ├── DiscoveryService.kt
+    ├── ScreenCaptureService.kt
+    └── InputAccessibilityService.kt
+```
