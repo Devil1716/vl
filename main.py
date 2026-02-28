@@ -1,13 +1,15 @@
 import sys
 import threading
 import time
-from PyQt6.QtWidgets import QApplication, QLabel, QMainWindow, QVBoxLayout, QWidget
-from PyQt6.QtGui import QImage, QPixmap, QPainter, QPainterPath, QColor
-from PyQt6.QtCore import Qt, pyqtSignal, QObject, QPoint
+from PyQt6.QtWidgets import QApplication, QLabel, QMainWindow, QVBoxLayout, QWidget, QDialog
+from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtCore import Qt, pyqtSignal, QObject
 
 from socket_client import SystemSocketAdapter
 from decoder import H264Decoder
 from input_mapper import InputMapper
+from connection_ui import ConnectionUI
+from adb_manager import AdbManager
 
 class VideoStreamThread(QObject):
     frame_ready = pyqtSignal(object)
@@ -40,11 +42,10 @@ class ProjectorWindow(QMainWindow):
         self.setWindowTitle("Projector")
         self.resize(360, 640)
 
-        # 1. Floating & Frameless Constraints
+        # Floating & Frameless Constraints
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
-        # Main Central Widget that acts as the completely rounded "Phone"
         self.central_widget = QWidget(self)
         self.central_widget.setObjectName("PhoneBezel")
         self.central_widget.setStyleSheet("""
@@ -60,7 +61,6 @@ class ProjectorWindow(QMainWindow):
         self.video_label.setStyleSheet("background-color: transparent;")
         self.video_label.setMouseTracking(True)
         
-        # Add padding to simulate a phone bezel
         layout = QVBoxLayout()
         layout.setContentsMargins(10, 20, 10, 20)
         layout.addWidget(self.video_label)
@@ -78,11 +78,8 @@ class ProjectorWindow(QMainWindow):
         self.streamer.start()
         self.decoder.start()
 
-        # Input tracking
         self.is_pressing = False
         self.start_pos = None
-
-        # Window Dragging State
         self.drag_position = None
 
         self.video_thread_worker = VideoStreamThread(self.streamer, self.decoder)
@@ -98,35 +95,28 @@ class ProjectorWindow(QMainWindow):
         q_img = QImage(rgb_img.data, width, height, bytes_per_line, QImage.Format.Format_RGB888)
         pixmap = QPixmap.fromImage(q_img)
         
-        # Scale image to the inside of the label
         scaled_pixmap = pixmap.scaled(self.video_label.size(), Qt.AspectRatioMode.KeepAspectRatio)
         self.video_label.setPixmap(scaled_pixmap)
 
-    # Mouse Events (Drag the window if clicking the bezel, otherwise send to Android)
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
-            # Check if click is inside the actual video area
             video_rect = self.video_label.geometry()
             if video_rect.contains(event.position().toPoint()):
                 self.is_pressing = True
-                
-                # Calculate coordinates relative only to the video sub-label
                 pos = self.video_label.mapFrom(self, event.position().toPoint())
                 self.start_pos = (pos.x(), pos.y())
             else:
-                # The user clicked the outer bounds (Bezel) -> Drag window
                 self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
                 event.accept()
 
     def mouseMoveEvent(self, event):
         if event.buttons() == Qt.MouseButton.LeftButton and self.drag_position is not None:
-            # Moving the entire window
             self.move(event.globalPosition().toPoint() - self.drag_position)
             event.accept()
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
-            self.drag_position = None # Stop window drag
+            self.drag_position = None
             
             if self.is_pressing:
                 self.is_pressing = False
@@ -145,7 +135,6 @@ class ProjectorWindow(QMainWindow):
                     self.input_mapper.send_swipe(self.start_pos[0], self.start_pos[1], end_pos[0], end_pos[1], w, h)
 
     def keyPressEvent(self, event):
-        # Press ESC to close the frameless window
         if event.key() == Qt.Key.Key_Escape:
             self.close()
 
@@ -153,10 +142,19 @@ class ProjectorWindow(QMainWindow):
         self.video_thread_worker.stop()
         self.streamer.stop()
         self.decoder.stop()
+        AdbManager().cleanup()  # Terminate background ADB daemon
         event.accept()
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    window = ProjectorWindow()
-    window.show()
-    sys.exit(app.exec())
+    
+    # 1. Boot up the ADB Setup Prompt
+    setup_ui = ConnectionUI()
+    if setup_ui.exec() == QDialog.DialogCode.Accepted:
+        # 2. Only if connected and server deployed successfully, load the Floating Phone window
+        window = ProjectorWindow()
+        window.show()
+        sys.exit(app.exec())
+    else:
+        sys.exit(0)
