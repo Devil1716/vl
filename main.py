@@ -1,11 +1,11 @@
 import sys
 import threading
 import time
-from PyQt6.QtWidgets import QApplication, QLabel, QMainWindow, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QLabel, QMainWindow, QVBoxLayout, QWidget, QInputDialog, QMessageBox
 from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtCore import Qt, pyqtSignal, QObject
 
-from adb_client import AdbStreamer
+from socket_client import SocketStreamer
 from decoder import H264Decoder
 from input_mapper import InputMapper
 
@@ -33,11 +33,10 @@ class VideoStreamThread(QObject):
     def stop(self):
         self.running = False
 
-
 class ProjectorWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, phone_ip):
         super().__init__()
-        self.setWindowTitle("ADB Projector")
+        self.setWindowTitle(f"Wireless Projector ({phone_ip})")
         self.resize(360, 640)
 
         self.video_label = QLabel(self)
@@ -56,9 +55,9 @@ class ProjectorWindow(QMainWindow):
         self.phone_width = 720
         self.phone_height = 1280
 
-        self.streamer = AdbStreamer()
+        self.streamer = SocketStreamer(ip=phone_ip)
         self.decoder = H264Decoder()
-        self.input_mapper = InputMapper(phone_width=self.phone_width, phone_height=self.phone_height)
+        self.input_mapper = InputMapper(ip=phone_ip, phone_width=self.phone_width, phone_height=self.phone_height)
 
         self.streamer.start()
         self.decoder.start()
@@ -115,6 +114,11 @@ class ProjectorWindow(QMainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    window = ProjectorWindow()
-    window.show()
-    sys.exit(app.exec())
+    
+    ip_address, ok = QInputDialog.getText(None, "Connect to Android App", "Enter Phone IP Address\n(Ensure both devices are on the same Wi-Fi):")
+    if ok and ip_address:
+        window = ProjectorWindow(ip_address)
+        window.show()
+        sys.exit(app.exec())
+    else:
+        sys.exit(0)
