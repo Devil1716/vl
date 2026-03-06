@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="#1A1A2E"
+    android:padding="32dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="PROJECTOR"
+        android:textSize="36sp"
+        android:textColor="#E94560"
+        android:textStyle="bold"
+        android:gravity="center" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="v1.0.3"
+        android:textSize="16sp"
+        android:textColor="#888888"
+        android:gravity="center"
+        android:layout_marginTop="4dp" />
+
+    <View
+        android:layout_width="200dp"
+        android:layout_height="1dp"
+        android:background="#333355"
+        android:layout_marginTop="24dp"
+        android:layout_marginBottom="24dp" />
+
+    <TextView
+        android:id="@+id/statusText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Status: Idle"
+        android:textSize="20sp"
+        android:textColor="#FFFFFF"
+        android:gravity="center" />
+
+    <TextView
+        android:id="@+id/ipText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Device IP: loading..."
+        android:textSize="14sp"
+        android:textColor="#AAAAAA"
+        android:gravity="center"
+        android:layout_marginTop="12dp" />
+
+    <Button
+        android:id="@+id/startButton"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:text="Start Streaming"
+        android:textSize="16sp"
+        android:layout_marginTop="32dp"
+        android:backgroundTint="#E94560"
+        android:textColor="#FFFFFF" />
+
+    <Button
+        android:id="@+id/stopButton"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:text="Stop Streaming"
+        android:textSize="16sp"
+        android:layout_marginTop="12dp"
+        android:backgroundTint="#555577"
+        android:textColor="#FFFFFF"
+        android:enabled="false" />
+
+</LinearLayout>
