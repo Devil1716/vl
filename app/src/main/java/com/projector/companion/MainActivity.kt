@@ -6,6 +6,7 @@ import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.net.wifi.WifiManager
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -17,6 +18,7 @@ class MainActivity : AppCompatActivity() {
     private var ipText: TextView? = null
     private var startButton: Button? = null
     private var stopButton: Button? = null
+    private var statusDot: View? = null
     private var isStreaming = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,6 +29,7 @@ class MainActivity : AppCompatActivity() {
         ipText = findViewById(R.id.ipText)
         startButton = findViewById(R.id.startButton)
         stopButton = findViewById(R.id.stopButton)
+        statusDot = findViewById(R.id.statusDot)
 
         updateIpAddress()
 
@@ -56,9 +59,9 @@ class MainActivity : AppCompatActivity() {
                 ip shr 16 and 0xff,
                 ip shr 24 and 0xff
             )
-            ipText?.text = "Device IP: $ipAddress"
+            ipText?.text = "IP: $ipAddress"
         } catch (e: Exception) {
-            ipText?.text = "Device IP: unavailable"
+            ipText?.text = "IP: unavailable"
         }
     }
 
@@ -86,13 +89,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateUI() {
         if (isStreaming) {
-            statusText?.text = "Status: Streaming"
-            startButton?.isEnabled = false
-            stopButton?.isEnabled = true
+            statusText?.text = "Screen is shared"
+            statusText?.setTextColor(android.graphics.Color.parseColor("#4ade80"))
+            statusDot?.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#4ade80"))
+            startButton?.visibility = View.GONE
+            stopButton?.visibility = View.VISIBLE
         } else {
-            statusText?.text = "Status: Idle"
-            startButton?.isEnabled = true
-            stopButton?.isEnabled = false
+            statusText?.text = "Ready to Connect"
+            statusText?.setTextColor(android.graphics.Color.parseColor("#FFFFFF"))
+            statusDot?.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#AAAAAA"))
+            startButton?.visibility = View.VISIBLE
+            stopButton?.visibility = View.GONE
         }
     }
 }
