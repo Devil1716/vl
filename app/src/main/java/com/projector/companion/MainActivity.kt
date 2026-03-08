@@ -38,6 +38,16 @@ class MainActivity : AppCompatActivity() {
 
         updateIpAddress()
 
+        ipText?.setOnClickListener {
+            val logFile = java.io.File(applicationContext.getExternalFilesDir(null), "projector_error.log")
+            val msg = if (logFile.exists()) logFile.readText() else "No error log found."
+            android.app.AlertDialog.Builder(this)
+                .setTitle("Crash Log")
+                .setMessage(msg)
+                .setPositiveButton("OK", null)
+                .show()
+        }
+
         startButton?.setOnClickListener {
             requestScreenCapture()
         }
