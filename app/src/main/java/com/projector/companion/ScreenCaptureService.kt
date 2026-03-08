@@ -88,9 +88,14 @@ class ScreenCaptureService : Service() {
             @Suppress("DEPRECATION")
             wm.defaultDisplay.getRealMetrics(metrics)
 
-            val width = 720
-            val height = (metrics.heightPixels.toFloat() / metrics.widthPixels * width).toInt()
+            var width = 720
+            var height = (metrics.heightPixels.toFloat() / metrics.widthPixels * width).toInt()
             val dpi = metrics.densityDpi
+
+            // Hardware H.264 encoders on many devices (Exynos, MediaTek) silently fail or
+            // crash if the dimensions are not exact multiples of 16.
+            width = (width / 16) * 16
+            height = (height / 16) * 16
 
             android.util.Log.d(TAG, "Starting encoder: ${width}x${height}, dpi=$dpi")
 
