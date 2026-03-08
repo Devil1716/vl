@@ -6,6 +6,7 @@ import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.net.wifi.WifiManager
 import android.os.Bundle
+import android.provider.Settings
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
@@ -19,6 +20,8 @@ class MainActivity : AppCompatActivity() {
     private var startButton: Button? = null
     private var stopButton: Button? = null
     private var statusDot: View? = null
+    private var accessibilityStatus: TextView? = null
+    private var accessibilityBtn: Button? = null
     private var isStreaming = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,6 +33,8 @@ class MainActivity : AppCompatActivity() {
         startButton = findViewById(R.id.startButton)
         stopButton = findViewById(R.id.stopButton)
         statusDot = findViewById(R.id.statusDot)
+        accessibilityStatus = findViewById(R.id.accessibilityStatus)
+        accessibilityBtn = findViewById(R.id.accessibilityBtn)
 
         updateIpAddress()
 
@@ -41,11 +46,40 @@ class MainActivity : AppCompatActivity() {
             stopStreaming()
         }
 
+        accessibilityBtn?.setOnClickListener {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
+
         // Check for updates
         UpdateChecker(this).checkInBackground()
 
         // Start discovery service
         startService(Intent(this, DiscoveryService::class.java))
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateAccessibilityStatus()
+    }
+
+    private fun isAccessibilityEnabled(): Boolean {
+        val enabledServices = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        return enabledServices.contains(packageName + "/" + InputAccessibilityService::class.java.canonicalName)
+    }
+
+    private fun updateAccessibilityStatus() {
+        if (isAccessibilityEnabled()) {
+            accessibilityStatus?.text = "✓ Phone control enabled"
+            accessibilityStatus?.setTextColor(android.graphics.Color.parseColor("#4ade80"))
+            accessibilityBtn?.visibility = View.GONE
+        } else {
+            accessibilityStatus?.text = "⚠ Enable Accessibility for full control"
+            accessibilityStatus?.setTextColor(android.graphics.Color.parseColor("#f59e0b"))
+            accessibilityBtn?.visibility = View.VISIBLE
+        }
     }
 
     private fun updateIpAddress() {

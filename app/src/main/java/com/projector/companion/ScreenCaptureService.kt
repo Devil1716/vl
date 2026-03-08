@@ -14,9 +14,15 @@ import android.util.DisplayMetrics
 import android.view.Surface
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
+import java.io.File
+import java.io.FileWriter
 import java.io.OutputStream
+import java.io.PrintWriter
+import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.text.SimpleDateFormat
+import java.util.Date
 
 class ScreenCaptureService : Service() {
 
@@ -57,58 +63,84 @@ class ScreenCaptureService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun startStreaming() {
-        val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        mediaProjection = projectionManager.getMediaProjection(resultCode, resultData!!)
-
-        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
-        val metrics = DisplayMetrics()
-        @Suppress("DEPRECATION")
-        wm.defaultDisplay.getRealMetrics(metrics)
-
-        val width = 720
-        val height = (metrics.heightPixels.toFloat() / metrics.widthPixels * width).toInt()
-        val dpi = metrics.densityDpi
-
-        android.util.Log.d(TAG, "Starting encoder: ${width}x${height}, dpi=$dpi")
-
-        // H.264 Encoder
-        val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
-            setInteger(MediaFormat.KEY_BIT_RATE, 4_000_000)
-            setInteger(MediaFormat.KEY_FRAME_RATE, 30)
-            setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
-            setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
+    private fun logToFile(msg: String, e: Throwable? = null) {
+        android.util.Log.e(TAG, msg, e)
+        try {
+            val logFile = File(applicationContext.getExternalFilesDir(null), "projector_error.log")
+            val fw = FileWriter(logFile, true)
+            val pw = PrintWriter(fw)
+            val time = SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(Date())
+            pw.println("[$time] $msg")
+            e?.printStackTrace(pw)
+            pw.close()
+        } catch (ex: Exception) {
+            // Ignored
         }
+    }
 
-        mediaCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
-        mediaCodec!!.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+    private fun startStreaming() {
+        try {
+            val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            mediaProjection = projectionManager.getMediaProjection(resultCode, resultData!!)
 
-        val inputSurface: Surface = mediaCodec!!.createInputSurface()
-        mediaCodec!!.start()
-        android.util.Log.d(TAG, "Encoder started")
+            val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+            val metrics = DisplayMetrics()
+            @Suppress("DEPRECATION")
+            wm.defaultDisplay.getRealMetrics(metrics)
 
-        virtualDisplay = mediaProjection?.createVirtualDisplay(
-            "ProjectorDisplay",
-            width, height, dpi,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-            inputSurface, null, null
-        )
-        android.util.Log.d(TAG, "VirtualDisplay created")
+            val width = 720
+            val height = (metrics.heightPixels.toFloat() / metrics.widthPixels * width).toInt()
+            val dpi = metrics.densityDpi
 
-        // Drain initial codec config (SPS/PPS) before accepting clients
-        drainCodecConfig()
+            android.util.Log.d(TAG, "Starting encoder: ${width}x${height}, dpi=$dpi")
 
-        // TCP Server for video
-        serverSocket = ServerSocket(8080)
-        android.util.Log.d(TAG, "Server listening on port 8080")
-        while (running) {
-            try {
-                val client: Socket = serverSocket!!.accept()
-                android.util.Log.d(TAG, "Client connected: ${client.inetAddress}")
-                Thread { streamToClient(client.getOutputStream()) }.start()
-            } catch (e: Exception) {
-                if (running) e.printStackTrace()
+            // H.264 Encoder
+            val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
+                setInteger(MediaFormat.KEY_BIT_RATE, 4_000_000)
+                setInteger(MediaFormat.KEY_FRAME_RATE, 30)
+                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+                setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
             }
+
+            mediaCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+            mediaCodec!!.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+
+            val inputSurface: Surface = mediaCodec!!.createInputSurface()
+            mediaCodec!!.start()
+            android.util.Log.d(TAG, "Encoder started")
+
+            virtualDisplay = mediaProjection?.createVirtualDisplay(
+                "ProjectorDisplay",
+                width, height, dpi,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                inputSurface, null, null
+            )
+            android.util.Log.d(TAG, "VirtualDisplay created")
+
+            // Drain initial codec config (SPS/PPS) before accepting clients
+            drainCodecConfig()
+
+            // TCP Server for video with port reuse
+            serverSocket = ServerSocket()
+            serverSocket!!.reuseAddress = true
+            serverSocket!!.bind(InetSocketAddress(8080))
+            android.util.Log.d(TAG, "Server listening on port 8080")
+            logToFile("Server successfully started on port 8080")
+
+            while (running) {
+                try {
+                    val client: Socket = serverSocket!!.accept()
+                    android.util.Log.d(TAG, "Client connected: ${client.inetAddress}")
+                    Thread { streamToClient(client.getOutputStream()) }.start()
+                } catch (e: Exception) {
+                    if (running) {
+                        e.printStackTrace()
+                        logToFile("Client accept error", e)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            logToFile("Fatal error in startStreaming", e)
         }
     }
 
