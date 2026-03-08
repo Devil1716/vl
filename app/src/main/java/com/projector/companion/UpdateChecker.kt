@@ -93,54 +93,57 @@ class UpdateChecker(private val context: Context) {
     }
 
     private fun downloadAndInstall(apkUrl: String, version: String) {
-        // Delete old update file if it exists
-        val apkFile = File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-            APK_FILE_NAME
-        )
-        if (apkFile.exists()) apkFile.delete()
+        // Show downloading dialog
+        val dialog = AlertDialog.Builder(context)
+            .setTitle("Downloading Update...")
+            .setMessage("Please wait while the update is downloading.")
+            .setCancelable(false)
+            .create()
+        dialog.show()
 
-        val request = DownloadManager.Request(Uri.parse(apkUrl))
-            .setTitle("Projector Update v$version")
-            .setDescription("Downloading update...")
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, APK_FILE_NAME)
-            .setMimeType("application/vnd.android.package-archive")
+        Thread {
+            try {
+                // Bypass Android 14 Scoped Storage by explicitly saving to internal cache
+                val apkFile = File(context.cacheDir, APK_FILE_NAME)
+                if (apkFile.exists()) apkFile.delete()
 
-        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val downloadId = dm.enqueue(request)
+                val url = URL(apkUrl)
+                val conn = url.openConnection() as HttpURLConnection
+                conn.connectTimeout = 10000
+                conn.readTimeout = 10000
+                conn.connect()
 
-        // Register a receiver to auto-install when download completes
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context?, intent: Intent?) {
-                val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1) ?: -1
-                if (id == downloadId) {
-                    try {
-                        context.unregisterReceiver(this)
-                    } catch (_: Exception) {}
+                if (conn.responseCode != HttpURLConnection.HTTP_OK) {
+                    throw Exception("Server returned HTTP ${conn.responseCode}")
+                }
+
+                val input = conn.inputStream
+                val output = apkFile.outputStream()
+                val buffer = ByteArray(4096)
+                var bytesRead: Int
+                while (input.read(buffer).also { bytesRead = it } != -1) {
+                    output.write(buffer, 0, bytesRead)
+                }
+                output.close()
+                input.close()
+                conn.disconnect()
+
+                Handler(Looper.getMainLooper()).post {
+                    dialog.dismiss()
                     installApk(apkFile)
                 }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Handler(Looper.getMainLooper()).post {
+                    dialog.dismiss()
+                    AlertDialog.Builder(context)
+                        .setTitle("Download Failed")
+                        .setMessage("Failed to download the update: ${e.message}\n\nPlease update manually via GitHub.")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
             }
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(
-                receiver,
-                IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
-                Context.RECEIVER_EXPORTED
-            )
-        } else {
-            context.registerReceiver(
-                receiver,
-                IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
-            )
-        }
-
-        AlertDialog.Builder(context)
-            .setTitle("Downloading...")
-            .setMessage("The update is downloading. It will install automatically when done.")
-            .setPositiveButton("OK", null)
-            .show()
+        }.start()
     }
 
     private fun installApk(apkFile: File) {
@@ -164,14 +167,6 @@ class UpdateChecker(private val context: Context) {
             context.startActivity(intent)
         } catch (e: Exception) {
             e.printStackTrace()
-            // Fallback: notify user to install manually
-            Handler(Looper.getMainLooper()).post {
-                AlertDialog.Builder(context)
-                    .setTitle("Download Complete")
-                    .setMessage("Update downloaded. Please open your Downloads folder and tap '$APK_FILE_NAME' to install.")
-                    .setPositiveButton("OK", null)
-                    .show()
-            }
         }
     }
 }
