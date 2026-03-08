@@ -167,13 +167,6 @@ class ScreenCaptureService : Service() {
     }
 
     private fun sendFrame(output: OutputStream, data: ByteArray) {
-        val sizeBytes = byteArrayOf(
-            (data.size shr 24 and 0xFF).toByte(),
-            (data.size shr 16 and 0xFF).toByte(),
-            (data.size shr 8 and 0xFF).toByte(),
-            (data.size and 0xFF).toByte()
-        )
-        output.write(sizeBytes)
         output.write(data)
         output.flush()
     }
