@@ -38,6 +38,7 @@ class ScreenCaptureService : Service() {
     private var virtualDisplay: VirtualDisplay? = null
     private var mediaCodec: MediaCodec? = null
     private var serverSocket: ServerSocket? = null
+    private var clientSocket: Socket? = null
     private var running = false
     @Volatile private var codecConfigData: ByteArray? = null
 
@@ -144,8 +145,15 @@ class ScreenCaptureService : Service() {
             while (running) {
                 try {
                     val client: Socket = serverSocket!!.accept()
+                    clientSocket = client
                     android.util.Log.d(TAG, "Client connected: ${client.inetAddress}")
-                    Thread { streamToClient(client.getOutputStream()) }.start()
+                    Thread {
+                        try {
+                            streamToClient(client.getOutputStream())
+                        } finally {
+                            try { client.close() } catch (e: Exception) {}
+                        }
+                    }.start()
                 } catch (e: Exception) {
                     if (running) {
                         e.printStackTrace()
@@ -239,10 +247,11 @@ class ScreenCaptureService : Service() {
     override fun onDestroy() {
         running = false
         virtualDisplay?.release()
-        mediaCodec?.stop()
-        mediaCodec?.release()
+        try { mediaCodec?.stop() } catch (e: Exception) {}
+        try { mediaCodec?.release() } catch (e: Exception) {}
         mediaProjection?.stop()
-        serverSocket?.close()
+        try { serverSocket?.close() } catch (e: Exception) {}
+        try { clientSocket?.close() } catch (e: Exception) {}
         super.onDestroy()
     }
 }
