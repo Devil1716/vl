@@ -114,6 +114,15 @@ class ScreenCaptureService : Service() {
             mediaCodec!!.start()
             android.util.Log.d(TAG, "Encoder started")
 
+            // Android 14 API 34 security requirement
+            val callback = object : MediaProjection.Callback() {
+                override fun onStop() {
+                    super.onStop()
+                    running = false
+                }
+            }
+            mediaProjection?.registerCallback(callback, null)
+
             virtualDisplay = mediaProjection?.createVirtualDisplay(
                 "ProjectorDisplay",
                 width, height, dpi,
