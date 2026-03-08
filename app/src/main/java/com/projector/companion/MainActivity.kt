@@ -60,6 +60,13 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
 
+        val unrestrictBtn: Button = findViewById(R.id.unrestrictBtn)
+        unrestrictBtn.setOnClickListener {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            intent.data = android.net.Uri.parse("package:$packageName")
+            startActivity(intent)
+        }
+
         // Check for updates
         UpdateChecker(this).checkInBackground()
 
@@ -81,14 +88,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateAccessibilityStatus() {
+        val unrestrictBtn: Button = findViewById(R.id.unrestrictBtn)
         if (isAccessibilityEnabled()) {
             accessibilityStatus?.text = "✓ Phone control enabled"
             accessibilityStatus?.setTextColor(android.graphics.Color.parseColor("#4ade80"))
             accessibilityBtn?.visibility = View.GONE
+            unrestrictBtn.visibility = View.GONE
         } else {
             accessibilityStatus?.text = "⚠ Enable Accessibility for full control"
             accessibilityStatus?.setTextColor(android.graphics.Color.parseColor("#f59e0b"))
             accessibilityBtn?.visibility = View.VISIBLE
+            unrestrictBtn.visibility = View.VISIBLE
         }
     }
 
