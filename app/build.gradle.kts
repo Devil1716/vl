@@ -35,3 +35,19 @@ dependencies {
     implementation("androidx.core:core-ktx:1.10.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
 }
+
+tasks.register("installAndRun") {
+    dependsOn("installDebug")
+    doLast {
+        exec {
+            commandLine(
+                android.adbExecutable.absolutePath,
+                "shell",
+                "am",
+                "start",
+                "-n",
+                "${android.defaultConfig.applicationId}/.MainActivity"
+            )
+        }
+    }
+}
