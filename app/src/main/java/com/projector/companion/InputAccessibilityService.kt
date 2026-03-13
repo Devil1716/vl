@@ -11,6 +11,10 @@ import java.io.InputStreamReader
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 
+/**
+ * Accessibility Service that receives JSON commands over a TCP socket
+ * and performs global actions (Back, Home, etc.) or gestures (Tap, Swipe) on the device.
+ */
 class InputAccessibilityService : AccessibilityService() {
 
     companion object {
@@ -26,20 +30,26 @@ class InputAccessibilityService : AccessibilityService() {
         instance = this
         running = true
         android.util.Log.d(TAG, "Accessibility Service connected")
+        // Start the input server when the service is connected
         serverThread = Thread { startInputServer() }
         serverThread?.start()
     }
 
+    /**
+     * Listens on port 8081 for JSON input commands.
+     * Supported commands: tap, swipe, back, home, recents, notifications.
+     */
     private fun startInputServer() {
         try {
             val serverSocket = ServerSocket()
-            serverSocket.reuseAddress = true
+            serverSocket.reuseAddress = true // Allow immediate restart on the same port
             serverSocket.bind(InetSocketAddress(8081))
             android.util.Log.d(TAG, "Input server listening on port 8081")
             while (running) {
                 try {
                     val client = serverSocket.accept()
                     android.util.Log.d(TAG, "Input client connected: ${client.inetAddress}")
+                    // Handle each remote control client in a separate thread
                     Thread {
                         val reader = BufferedReader(InputStreamReader(client.getInputStream()))
                         var line: String?
@@ -90,6 +100,10 @@ class InputAccessibilityService : AccessibilityService() {
         }
     }
 
+    /**
+     * Simulates a tap at the given coordinates using Accessibility gestures.
+     * Requires Android N (7.0) or higher.
+     */
     private fun performTap(x: Float, y: Float) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
         val path = Path()
@@ -100,6 +114,9 @@ class InputAccessibilityService : AccessibilityService() {
         dispatchGesture(gesture, null, null)
     }
 
+    /**
+     * Simulates a swipe between two points.
+     */
     private fun performSwipe(x1: Float, y1: Float, x2: Float, y2: Float, duration: Long) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return
         val path = Path()
@@ -116,7 +133,7 @@ class InputAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         running = false
-        instance = null
+        instance = null // Clear static instance to prevent leaks
         super.onDestroy()
     }
 }
