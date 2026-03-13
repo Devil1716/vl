@@ -12,6 +12,10 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 
+/**
+ * The main entry point of the Projector Companion app.
+ * Responsible for UI management, screen capture requests, and service orchestration.
+ */
 class MainActivity : AppCompatActivity() {
 
     private val SCREEN_CAPTURE_REQUEST = 1001
@@ -28,6 +32,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Initialize UI components
         statusText = findViewById(R.id.statusText)
         ipText = findViewById(R.id.ipText)
         startButton = findViewById(R.id.startButton)
@@ -38,6 +43,7 @@ class MainActivity : AppCompatActivity() {
 
         updateIpAddress()
 
+        // Show crash logs when IP text is clicked (for debugging)
         ipText?.setOnClickListener {
             val logFile = java.io.File(applicationContext.getExternalFilesDir(null), "projector_error.log")
             val msg = if (logFile.exists()) logFile.readText() else "No error log found."
@@ -60,6 +66,7 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
 
+        // Button to open app details (useful for unrestricting battery/data)
         val unrestrictBtn: Button = findViewById(R.id.unrestrictBtn)
         unrestrictBtn.setOnClickListener {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
@@ -67,18 +74,22 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
-        // Check for updates
+        // Check for updates from GitHub in the background
         UpdateChecker(this).checkInBackground()
 
-        // Start discovery service
+        // Start the UDP discovery service so PC clients can find this device
         startService(Intent(this, DiscoveryService::class.java))
     }
 
     override fun onResume() {
         super.onResume()
+        // Refresh accessibility status when returning to the app
         updateAccessibilityStatus()
     }
 
+    /**
+     * Checks if the InputAccessibilityService is enabled in Android settings.
+     */
     private fun isAccessibilityEnabled(): Boolean {
         val enabledServices = Settings.Secure.getString(
             contentResolver,
@@ -87,6 +98,9 @@ class MainActivity : AppCompatActivity() {
         return enabledServices.contains(packageName + "/" + InputAccessibilityService::class.java.canonicalName)
     }
 
+    /**
+     * Updates the UI to reflect whether phone control is enabled via accessibility.
+     */
     private fun updateAccessibilityStatus() {
         val unrestrictBtn: Button = findViewById(R.id.unrestrictBtn)
         if (isAccessibilityEnabled()) {
@@ -102,6 +116,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Retrieves and displays the local WiFi IP address.
+     */
     private fun updateIpAddress() {
         try {
             val wifiManager = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
@@ -119,6 +136,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Triggers the system screen capture dialog.
+     */
     private fun requestScreenCapture() {
         val projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         startActivityForResult(projectionManager.createScreenCaptureIntent(), SCREEN_CAPTURE_REQUEST)
@@ -127,6 +147,7 @@ class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == SCREEN_CAPTURE_REQUEST && resultCode == Activity.RESULT_OK && data != null) {
+            // Store result data and start the capture service
             ScreenCaptureService.resultCode = resultCode
             ScreenCaptureService.resultData = data
             startService(Intent(this, ScreenCaptureService::class.java))
@@ -135,12 +156,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Stops the screen capture service.
+     */
     private fun stopStreaming() {
         stopService(Intent(this, ScreenCaptureService::class.java))
         isStreaming = false
         updateUI()
     }
 
+    /**
+     * Updates the central status text and buttons based on streaming state.
+     */
     private fun updateUI() {
         if (isStreaming) {
             statusText?.text = "Screen is shared"
