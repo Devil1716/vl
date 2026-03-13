@@ -24,6 +24,10 @@ import java.net.Socket
 import java.text.SimpleDateFormat
 import java.util.Date
 
+/**
+ * Foreground service that captures the screen, encodes it to H.264 (AVC),
+ * and streams it over a TCP socket.
+ */
 class ScreenCaptureService : Service() {
 
     companion object {
@@ -59,11 +63,15 @@ class ScreenCaptureService : Service() {
         startForeground(NOTIFICATION_ID, notification)
 
         running = true
+        // Start streaming logic in a background thread
         Thread { startStreaming() }.start()
 
         return START_NOT_STICKY
     }
 
+    /**
+     * Logs messages to a file on external storage for troubleshooting.
+     */
     private fun logToFile(msg: String, e: Throwable? = null) {
         android.util.Log.e(TAG, msg, e)
         try {
@@ -79,6 +87,10 @@ class ScreenCaptureService : Service() {
         }
     }
 
+    /**
+     * Main streaming loop: configures MediaCodec, creates a VirtualDisplay, 
+     * and listens for client TCP connections.
+     */
     private fun startStreaming() {
         try {
             val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -89,6 +101,7 @@ class ScreenCaptureService : Service() {
             @Suppress("DEPRECATION")
             wm.defaultDisplay.getRealMetrics(metrics)
 
+            // Scaled resolution for performance (default 720p width)
             var width = 720
             var height = (metrics.heightPixels.toFloat() / metrics.widthPixels * width).toInt()
             val dpi = metrics.densityDpi
@@ -100,22 +113,23 @@ class ScreenCaptureService : Service() {
 
             android.util.Log.d(TAG, "Starting encoder: ${width}x${height}, dpi=$dpi")
 
-            // H.264 Encoder
+            // Configure H.264 Encoder (AVC)
             val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
-                setInteger(MediaFormat.KEY_BIT_RATE, 4_000_000)
-                setInteger(MediaFormat.KEY_FRAME_RATE, 30)
-                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+                setInteger(MediaFormat.KEY_BIT_RATE, 4_000_000) // 4 Mbps
+                setInteger(MediaFormat.KEY_FRAME_RATE, 30)       // 30 FPS
+                setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)  // Keyframe every 1 second
                 setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
             }
 
             mediaCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
             mediaCodec!!.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
 
+            // The encoder will read frames directly from this surface
             val inputSurface: Surface = mediaCodec!!.createInputSurface()
             mediaCodec!!.start()
             android.util.Log.d(TAG, "Encoder started")
 
-            // Android 14 API 34 security requirement
+            // Android 14 API 34 security requirement: Handle system screen capture stop
             val callback = object : MediaProjection.Callback() {
                 override fun onStop() {
                     super.onStop()
@@ -124,6 +138,7 @@ class ScreenCaptureService : Service() {
             }
             mediaProjection?.registerCallback(callback, null)
 
+            // Mirror the real screen content into the encoder's surface via a VirtualDisplay
             virtualDisplay = mediaProjection?.createVirtualDisplay(
                 "ProjectorDisplay",
                 width, height, dpi,
@@ -133,6 +148,7 @@ class ScreenCaptureService : Service() {
             android.util.Log.d(TAG, "VirtualDisplay created")
 
             // Drain initial codec config (SPS/PPS) before accepting clients
+            // This is critical for the client decoder to know how to decode the stream.
             drainCodecConfig()
 
             // TCP Server for video with port reuse
@@ -147,6 +163,7 @@ class ScreenCaptureService : Service() {
                     val client: Socket = serverSocket!!.accept()
                     clientSocket = client
                     android.util.Log.d(TAG, "Client connected: ${client.inetAddress}")
+                    // Spawn a thread for each connected client
                     Thread {
                         try {
                             streamToClient(client.getOutputStream())
@@ -166,6 +183,9 @@ class ScreenCaptureService : Service() {
         }
     }
 
+    /**
+     * Polls the encoder for the initial configuration data (SPS/PPS).
+     */
     private fun drainCodecConfig() {
         val bufferInfo = MediaCodec.BufferInfo()
         // Wait briefly for the encoder to produce codec config (SPS/PPS)
@@ -193,6 +213,9 @@ class ScreenCaptureService : Service() {
         output.flush()
     }
 
+    /**
+     * Reads encoded packets from the MediaCodec and sends them over the TCP stream.
+     */
     private fun streamToClient(output: OutputStream) {
         val bufferInfo = MediaCodec.BufferInfo()
         var frameCount = 0
@@ -218,6 +241,7 @@ class ScreenCaptureService : Service() {
                         val data = ByteArray(bufferInfo.size)
                         buffer.get(data)
 
+                        // Send the NAL unit (encoded frame) to the client
                         sendFrame(output, data)
 
                         frameCount++
@@ -233,6 +257,9 @@ class ScreenCaptureService : Service() {
         }
     }
 
+    /**
+     * Required for Android 8.0+ to show notification for foreground service.
+     */
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
