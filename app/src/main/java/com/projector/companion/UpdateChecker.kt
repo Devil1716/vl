@@ -17,6 +17,10 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
+/**
+ * Utility class to check for updates on GitHub and install them.
+ * Bypasses Android 14 scoped storage restrictions by using the internal cache.
+ */
 class UpdateChecker(private val context: Context) {
 
     companion object {
@@ -25,6 +29,9 @@ class UpdateChecker(private val context: Context) {
         private const val APK_FILE_NAME = "Projector-update.apk"
     }
 
+    /**
+     * Checks for a newer version in the background.
+     */
     fun checkInBackground() {
         Thread {
             try {
@@ -40,8 +47,9 @@ class UpdateChecker(private val context: Context) {
                     val currentVersion = context.packageManager
                         .getPackageInfo(context.packageName, 0).versionName
 
+                    // Compare remote tag with local version name
                     if (isNewer(latestTag, currentVersion ?: "0.0.0")) {
-                        // Find APK download URL
+                        // Find the first APK asset in the release
                         val assets = json.getJSONArray("assets")
                         var apkUrl: String? = null
                         for (i in 0 until assets.length()) {
@@ -67,6 +75,9 @@ class UpdateChecker(private val context: Context) {
         }.start()
     }
 
+    /**
+     * SemVer comparison logic.
+     */
     private fun isNewer(remote: String, local: String): Boolean {
         try {
             val remoteParts = remote.split(".").map { it.toIntOrNull() ?: 0 }
@@ -92,8 +103,10 @@ class UpdateChecker(private val context: Context) {
             .show()
     }
 
+    /**
+     * Downloads the APK to the app's internal cache and triggers installation.
+     */
     private fun downloadAndInstall(apkUrl: String, version: String) {
-        // Show downloading dialog
         val dialog = AlertDialog.Builder(context)
             .setTitle("Downloading Update...")
             .setMessage("Please wait while the update is downloading.")
@@ -103,7 +116,7 @@ class UpdateChecker(private val context: Context) {
 
         Thread {
             try {
-                // Bypass Android 14 Scoped Storage by explicitly saving to internal cache
+                // Save to internal cache to avoid permission issues on Android 11+ (Scoped Storage)
                 val apkFile = File(context.cacheDir, APK_FILE_NAME)
                 if (apkFile.exists()) apkFile.delete()
 
@@ -146,6 +159,9 @@ class UpdateChecker(private val context: Context) {
         }.start()
     }
 
+    /**
+     * Uses FileProvider to securely share the APK URI with the system installer.
+     */
     private fun installApk(apkFile: File) {
         try {
             val intent = Intent(Intent.ACTION_VIEW)
