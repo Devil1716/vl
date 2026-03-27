@@ -106,7 +106,7 @@
             android:id="@+id/accessibilityStatus"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="⚠ Enable Accessibility for full control"
+            android:text="&#x26A0; Enable Accessibility for full control"
             android:textSize="14sp"
             android:textColor="#f59e0b"
             android:layout_marginBottom="12dp" />
@@ -135,4 +135,3 @@
     </LinearLayout>
 
 </LinearLayout>
-
