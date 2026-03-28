@@ -2,4 +2,6 @@
 <resources>
     <string name="app_name">Projector</string>
     <string name="accessibility_description">Projector uses this service to receive touch commands from your PC and replay them on your phone screen.</string>
+    <string name="accessibility_enabled_status">&#x2713; Phone control enabled</string>
+    <string name="accessibility_disabled_status">&#x26A0; Enable Accessibility for full control</string>
 </resources>

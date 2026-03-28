@@ -104,12 +104,12 @@ class MainActivity : AppCompatActivity() {
     private fun updateAccessibilityStatus() {
         val unrestrictBtn: Button = findViewById(R.id.unrestrictBtn)
         if (isAccessibilityEnabled()) {
-            accessibilityStatus?.text = "\u2713 Phone control enabled"
+            accessibilityStatus?.text = getString(R.string.accessibility_enabled_status)
             accessibilityStatus?.setTextColor(android.graphics.Color.parseColor("#4ade80"))
             accessibilityBtn?.visibility = View.GONE
             unrestrictBtn.visibility = View.GONE
         } else {
-            accessibilityStatus?.text = "\u26A0 Enable Accessibility for full control"
+            accessibilityStatus?.text = getString(R.string.accessibility_disabled_status)
             accessibilityStatus?.setTextColor(android.graphics.Color.parseColor("#f59e0b"))
             accessibilityBtn?.visibility = View.VISIBLE
             unrestrictBtn.visibility = View.VISIBLE
