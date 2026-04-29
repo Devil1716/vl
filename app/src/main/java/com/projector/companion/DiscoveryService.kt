@@ -33,6 +33,10 @@ class DiscoveryService : Service() {
                 try {
                     val deviceName = Build.MODEL
                     val localIp = getLocalIpAddress()
+                    if (localIp == null) {
+                        Thread.sleep(2000)
+                        continue
+                    }
                     // Beacon format: PROJECTOR_BEACON|DeviceName|IPAddress
                     val message = "PROJECTOR_BEACON|$deviceName|$localIp"
                     val data = message.toByteArray()
@@ -53,9 +57,12 @@ class DiscoveryService : Service() {
     /**
      * Gets the local IPv4 address as a string.
      */
-    private fun getLocalIpAddress(): String {
+    private fun getLocalIpAddress(): String? {
         val wifiManager = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
         val ip = wifiManager.connectionInfo.ipAddress
+        if (ip == 0) {
+            return null
+        }
         return String.format(
             "%d.%d.%d.%d",
             ip and 0xff,

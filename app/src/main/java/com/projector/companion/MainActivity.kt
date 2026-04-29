@@ -123,6 +123,10 @@ class MainActivity : AppCompatActivity() {
         try {
             val wifiManager = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
             val ip = wifiManager.connectionInfo.ipAddress
+            if (ip == 0) {
+                ipText?.text = "IP: unavailable"
+                return
+            }
             val ipAddress = String.format(
                 "%d.%d.%d.%d",
                 ip and 0xff,
