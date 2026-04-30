@@ -83,6 +83,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        updateIpAddress()
         // Refresh accessibility status when returning to the app
         updateAccessibilityStatus()
     }
