@@ -21,6 +21,9 @@ class DiscoveryService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (thread?.isAlive == true) {
+            return START_STICKY
+        }
         running = true
         // Start a background thread to send UDP broadcast packets
         thread = Thread {
@@ -75,6 +78,7 @@ class DiscoveryService : Service() {
     override fun onDestroy() {
         running = false
         thread?.interrupt()
+        thread = null
         super.onDestroy()
     }
 }
