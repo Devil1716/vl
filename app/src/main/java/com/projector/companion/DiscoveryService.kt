@@ -21,10 +21,12 @@ class DiscoveryService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // A restart can arrive while the previous worker thread is still winding down.
+        // Keep the service marked active so the existing thread can continue broadcasting.
+        running = true
         if (thread?.isAlive == true) {
             return START_STICKY
         }
-        running = true
         // Start a background thread to send UDP broadcast packets
         thread = Thread {
             val socket = DatagramSocket()
