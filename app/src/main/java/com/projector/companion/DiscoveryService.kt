@@ -34,26 +34,32 @@ class DiscoveryService : Service() {
             // Broadcast to the whole local subnet
             val broadcastAddress = InetAddress.getByName("255.255.255.255")
 
-            while (running) {
-                try {
-                    val deviceName = Build.MODEL
-                    val localIp = getLocalIpAddress()
-                    if (localIp == null) {
+            try {
+                while (running) {
+                    try {
+                        val deviceName = Build.MODEL
+                        val localIp = getLocalIpAddress()
+                        if (localIp == null) {
+                            Thread.sleep(2000)
+                            continue
+                        }
+                        // Beacon format: PROJECTOR_BEACON|DeviceName|IPAddress
+                        val message = "PROJECTOR_BEACON|$deviceName|$localIp"
+                        val data = message.toByteArray()
+                        val packet = DatagramPacket(data, data.size, broadcastAddress, 9999)
+                        socket.send(packet)
+                        // Broadcast every 2 seconds
                         Thread.sleep(2000)
-                        continue
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
-                    // Beacon format: PROJECTOR_BEACON|DeviceName|IPAddress
-                    val message = "PROJECTOR_BEACON|$deviceName|$localIp"
-                    val data = message.toByteArray()
-                    val packet = DatagramPacket(data, data.size, broadcastAddress, 9999)
-                    socket.send(packet)
-                    // Broadcast every 2 seconds
-                    Thread.sleep(2000)
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                }
+            } finally {
+                socket.close()
+                if (thread === Thread.currentThread()) {
+                    thread = null
                 }
             }
-            socket.close()
         }
         thread?.start()
         return START_STICKY
@@ -80,7 +86,6 @@ class DiscoveryService : Service() {
     override fun onDestroy() {
         running = false
         thread?.interrupt()
-        thread = null
         super.onDestroy()
     }
 }
